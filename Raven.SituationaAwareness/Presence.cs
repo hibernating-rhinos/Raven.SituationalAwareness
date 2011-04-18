@@ -32,7 +32,7 @@ namespace Raven.SituationaAwareness
 		{
 			Log = (s, objects) => { };// don't log
 			this.heartbeat = heartbeat;
-			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, FindEndpointMetadata));
+			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, FindNewEndpointMetadata));
 			try
 			{
 				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
@@ -46,6 +46,13 @@ namespace Raven.SituationaAwareness
 				Dispose();
 				throw;
 			}
+		}
+
+		private void FindNewEndpointMetadata(Uri uri)
+		{
+			if (topologyState.ContainsKey(uri))
+				return;
+			FindEndpointMetadata(uri);
 		}
 
 		public void Start()
@@ -84,14 +91,13 @@ namespace Raven.SituationaAwareness
 
 		private void DiscoveryClientOnFindProgressChanged(object sender, FindProgressChangedEventArgs findProgressChangedEventArgs)
 		{
-			FindEndpointMetadata(findProgressChangedEventArgs.EndpointDiscoveryMetadata.ListenUris.First());
+			FindNewEndpointMetadata(findProgressChangedEventArgs.EndpointDiscoveryMetadata.ListenUris.First());
 		}
 
 		private void FindEndpointMetadata(Uri listenUri)
 		{
 			if (listenUri == myAddress)
 				return;
-
 			var nodeStateServiceAsync = ChannelFactory<INodeStateServiceAsync>.CreateChannel(new NetTcpBinding(SecurityMode.None),
 			                                                                                 new EndpointAddress(listenUri));
 

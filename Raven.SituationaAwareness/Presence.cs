@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.ServiceModel;
 using System.ServiceModel.Discovery;
@@ -18,6 +19,8 @@ namespace Raven.SituationaAwareness
 		private readonly Uri myAddress;
 		private readonly ConcurrentDictionary<Uri, IDictionary<string,string>> topologyState = new ConcurrentDictionary<Uri, IDictionary<string, string>>();
 
+		public Action<string, object[]> Log { get; set; }
+
 		public event EventHandler<NodeMetadata> TopologyChanged = delegate { };
 
 		public Presence(IDictionary<string, string> nodeMetadata): this(nodeMetadata, TimeSpan.FromMinutes(5))
@@ -27,8 +30,9 @@ namespace Raven.SituationaAwareness
 
 		public Presence(IDictionary<string, string> nodeMetadata, TimeSpan heartbeat)
 		{
+			Log = Debug.WriteLine;
 			this.heartbeat = heartbeat;
-			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata));
+			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, DiscoveredNewEndpoint));
 			try
 			{
 				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
@@ -77,22 +81,28 @@ namespace Raven.SituationaAwareness
 
 		private void DiscoveryClientOnFindProgressChanged(object sender, FindProgressChangedEventArgs findProgressChangedEventArgs)
 		{
-			var endpointDiscoveryMetadata = findProgressChangedEventArgs.EndpointDiscoveryMetadata;
-			var listenUri = endpointDiscoveryMetadata.ListenUris.First();
+			DiscoveredNewEndpoint(findProgressChangedEventArgs.EndpointDiscoveryMetadata.ListenUris.First());
+		}
+
+		private void DiscoveredNewEndpoint(Uri listenUri)
+		{
 			if (listenUri == myAddress)
 				return;
 
 			if (topologyState.ContainsKey(listenUri))
-				return; // we already know that one
+				return;
 
 			var nodeStateServiceAsync = ChannelFactory<INodeStateServiceAsync>.CreateChannel(new NetTcpBinding(SecurityMode.None),
 			                                                                                 new EndpointAddress(listenUri));
 
-			Task.Factory.FromAsync<IDictionary<string, string>>(nodeStateServiceAsync.BeginGetMetadata, nodeStateServiceAsync.EndGetMetadata, null)
+			Task.Factory.FromAsync<Uri,IDictionary<string, string>>(nodeStateServiceAsync.BeginGetMetadata, nodeStateServiceAsync.EndGetMetadata, myAddress, null)
 				.ContinueWith(task =>
 				{
+					// not interested in this one, it just failed
 					if (task.Exception != null)
-						return; // not interested in this one, it just failed
+					{
+						Log("Could not connect to {0} because: {1}", new object[] {listenUri, task.Exception});
+					}
 
 					topologyState.TryAdd(listenUri, task.Result);
 					CloseWcf(nodeStateServiceAsync);

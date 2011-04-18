@@ -32,7 +32,7 @@ namespace Raven.SituationaAwareness
 		{
 			Log = (s, objects) => { };// don't log
 			this.heartbeat = heartbeat;
-			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, DiscoveredNewEndpoint));
+			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, FindEndpointMetadata));
 			try
 			{
 				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
@@ -51,8 +51,8 @@ namespace Raven.SituationaAwareness
 		public void Start()
 		{
 			serviceHost.Open();
-			FindSiblingNodes(serviceHost);
-			timer = new Timer(FindSiblingNodes, serviceHost, heartbeat, heartbeat);
+			RefreshTopology(serviceHost);
+			timer = new Timer(RefreshTopology, serviceHost, heartbeat, heartbeat);
 		}
 
 		private static int GetAutoPort()
@@ -70,8 +70,11 @@ namespace Raven.SituationaAwareness
 				"After scanning over 2,000 ports, couldn't find one that was open! What is going on in this machine?!");
 		}
 
-		private void FindSiblingNodes(object state)
+		private void RefreshTopology(object state)
 		{
+			// heartbeat - will remove any failing nodes
+			Parallel.ForEach(topologyState.Keys, FindEndpointMetadata);
+
 			var discoveryClient = new DiscoveryClient(new UdpDiscoveryEndpoint());
 			discoveryClient.FindProgressChanged+=DiscoveryClientOnFindProgressChanged;
 			discoveryClient.FindCompleted+=DiscoveryClientOnFindCompleted;
@@ -81,15 +84,12 @@ namespace Raven.SituationaAwareness
 
 		private void DiscoveryClientOnFindProgressChanged(object sender, FindProgressChangedEventArgs findProgressChangedEventArgs)
 		{
-			DiscoveredNewEndpoint(findProgressChangedEventArgs.EndpointDiscoveryMetadata.ListenUris.First());
+			FindEndpointMetadata(findProgressChangedEventArgs.EndpointDiscoveryMetadata.ListenUris.First());
 		}
 
-		private void DiscoveredNewEndpoint(Uri listenUri)
+		private void FindEndpointMetadata(Uri listenUri)
 		{
 			if (listenUri == myAddress)
-				return;
-
-			if (topologyState.ContainsKey(listenUri))
 				return;
 
 			var nodeStateServiceAsync = ChannelFactory<INodeStateServiceAsync>.CreateChannel(new NetTcpBinding(SecurityMode.None),
@@ -101,7 +101,21 @@ namespace Raven.SituationaAwareness
 					// not interested in this one, it just failed
 					if (task.Exception != null)
 					{
-						Log("Could not connect to {0} because: {1}", new object[] {listenUri, task.Exception});
+
+						IDictionary<string, string> value;
+						if (topologyState.TryRemove(listenUri, out value) == false) // new node that we can't connect to
+						{
+							Log("Could not connect to {0} because: {1}", new object[] { listenUri, task.Exception });
+							return;
+						}
+						//notify node removed
+						TopologyChanged(this, new NodeMetadata
+						{
+							ChangeType = TopologyChangeType.Gone,
+							Metadata = value,
+							Uri = listenUri
+						});
+						return;
 					}
 
 					CloseWcf(nodeStateServiceAsync);

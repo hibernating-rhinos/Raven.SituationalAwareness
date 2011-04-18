@@ -13,7 +13,7 @@ namespace Raven.SituationaAwareness.Tryouts
 			{
 				{"ClusterName", "Ayende"},
 				{"StartTime", DateTime.Now.ToString("r")}
-			});
+			}, TimeSpan.FromSeconds(3));
 			presence.TopologyChanged+=PresenceOnTopologyChanged;
 			presence.Start();
 			Console.WriteLine("Waiting...");
@@ -22,6 +22,11 @@ namespace Raven.SituationaAwareness.Tryouts
 
 		private static void PresenceOnTopologyChanged(object sender, NodeMetadata nodeMetadata)
 		{
+			if(nodeMetadata.ChangeType == TopologyChangeType.Gone)
+			{
+				Console.WriteLine("Oh no, {0} is gone!", nodeMetadata.Uri);
+				return;
+			}
 			Console.WriteLine("Found {0}", nodeMetadata.Uri);
 			foreach (var item in nodeMetadata.Metadata)
 			{

@@ -30,7 +30,7 @@ namespace Raven.SituationaAwareness
 
 		public Presence(IDictionary<string, string> nodeMetadata, TimeSpan heartbeat)
 		{
-			Log = Debug.WriteLine;
+			Log = (s, objects) => { };// don't log
 			this.heartbeat = heartbeat;
 			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, DiscoveredNewEndpoint));
 			try
@@ -104,8 +104,11 @@ namespace Raven.SituationaAwareness
 						Log("Could not connect to {0} because: {1}", new object[] {listenUri, task.Exception});
 					}
 
-					topologyState.TryAdd(listenUri, task.Result);
 					CloseWcf(nodeStateServiceAsync);
+
+					if (topologyState.TryAdd(listenUri, task.Result) == false)
+						return;// already added
+
 					TopologyChanged(this, new NodeMetadata
 					{
 						ChangeType = TopologyChangeType.Discovered,

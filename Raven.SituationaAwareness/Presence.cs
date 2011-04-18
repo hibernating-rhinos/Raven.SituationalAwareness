@@ -13,6 +13,7 @@ namespace Raven.SituationaAwareness
 {
 	public class Presence : IDisposable
 	{
+		private readonly string clusterName;
 		private readonly TimeSpan heartbeat;
 		private Timer timer;
 		private readonly ServiceHost serviceHost;
@@ -23,16 +24,16 @@ namespace Raven.SituationaAwareness
 
 		public event EventHandler<NodeMetadata> TopologyChanged = delegate { };
 
-		public Presence(IDictionary<string, string> nodeMetadata): this(nodeMetadata, TimeSpan.FromMinutes(5))
+		public Presence(string clusterName, IDictionary<string, string> nodeMetadata): this(clusterName, nodeMetadata, TimeSpan.FromMinutes(5))
 		{
-			
 		}
 
-		public Presence(IDictionary<string, string> nodeMetadata, TimeSpan heartbeat)
+		public Presence(string clusterName, IDictionary<string, string> nodeMetadata, TimeSpan heartbeat)
 		{
 			Log = (s, objects) => { };// don't log
+			this.clusterName = clusterName;
 			this.heartbeat = heartbeat;
-			serviceHost = new ServiceHost(new NodeStateService(nodeMetadata, FindNewEndpointMetadata));
+			serviceHost = new ServiceHost(new NodeStateService(clusterName, nodeMetadata, FindNewEndpointMetadata));
 			try
 			{
 				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
@@ -101,13 +102,12 @@ namespace Raven.SituationaAwareness
 			var nodeStateServiceAsync = ChannelFactory<INodeStateServiceAsync>.CreateChannel(new NetTcpBinding(SecurityMode.None),
 			                                                                                 new EndpointAddress(listenUri));
 
-			Task.Factory.FromAsync<Uri,IDictionary<string, string>>(nodeStateServiceAsync.BeginGetMetadata, nodeStateServiceAsync.EndGetMetadata, myAddress, null)
+			Task.Factory.FromAsync<string, Uri,RemoteNodeMetadata>(nodeStateServiceAsync.BeginGetMetadata, nodeStateServiceAsync.EndGetMetadata, clusterName, myAddress, null)
 				.ContinueWith(task =>
 				{
 					// not interested in this one, it just failed
 					if (task.Exception != null)
 					{
-
 						IDictionary<string, string> value;
 						if (topologyState.TryRemove(listenUri, out value) == false) // new node that we can't connect to
 						{
@@ -119,21 +119,26 @@ namespace Raven.SituationaAwareness
 						{
 							ChangeType = TopologyChangeType.Gone,
 							Metadata = value,
-							Uri = listenUri
+							Uri = listenUri,
+							ClusterName = clusterName
 						});
 						return;
 					}
 
 					CloseWcf(nodeStateServiceAsync);
 
-					if (topologyState.TryAdd(listenUri, task.Result) == false)
+					if (task.Result.ClusterName != clusterName)
+						return; // not interested in this
+
+					if (topologyState.TryAdd(listenUri, task.Result.Metadata) == false)
 						return;// already added
 
 					TopologyChanged(this, new NodeMetadata
 					{
 						ChangeType = TopologyChangeType.Discovered,
-						Metadata = task.Result,
-						Uri = listenUri
+						Metadata = task.Result.Metadata,
+						Uri = listenUri,
+						ClusterName = clusterName
 					});
 				});
 		}
@@ -173,7 +178,8 @@ namespace Raven.SituationaAwareness
 	{
 		public TopologyChangeType ChangeType { get; set; }
 		public IDictionary<string, string> Metadata { get; set; }
-		public Uri Uri { get; set; } 
+		public Uri Uri { get; set; }
+		public string ClusterName { get; set; }
 	}
 
 	public enum TopologyChangeType

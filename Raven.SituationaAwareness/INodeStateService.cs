@@ -9,15 +9,21 @@ namespace Raven.SituationaAwareness
 	public interface INodeStateService
 	{
 		[OperationContract(ProtectionLevel = ProtectionLevel.None)]
-		IDictionary<string, string> GetMetadata(Uri source);
+		RemoteNodeMetadata GetMetadata(string clusterName, Uri source);
 	}
 
 	[ServiceContract(ProtectionLevel = ProtectionLevel.None, Name = "Raven.SituationaAwareness.INodeStateService", Namespace = "http://hibernatingrhinos.com/raven/situational.awareness/2011/04")]
 	public interface INodeStateServiceAsync
 	{
 		[OperationContract(ProtectionLevel = ProtectionLevel.None, AsyncPattern = true)]
-		IAsyncResult BeginGetMetadata(Uri source, AsyncCallback callback,object state);
+		IAsyncResult BeginGetMetadata(string clusterName, Uri source, AsyncCallback callback, object state);
 
-		IDictionary<string, string> EndGetMetadata(IAsyncResult ar);
+		 RemoteNodeMetadata EndGetMetadata(IAsyncResult ar);
+	}
+
+	public class RemoteNodeMetadata
+	{
+		public IDictionary<string, string> Metadata { get; set; }
+		public string ClusterName { get; set; }
 	}
 }

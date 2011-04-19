@@ -13,20 +13,25 @@ namespace Raven.SituationaAwareness.Tryouts
 			{
 				{"StartTime", DateTime.Now.ToString("r")}
 			}, TimeSpan.FromSeconds(3));
-			presence.TopologyChanged+=(sender, nodeMetadata) =>
+			presence.TopologyChanged += (sender, nodeMetadata) =>
 			{
-				if(nodeMetadata.ChangeType == TopologyChangeType.Gone)
+				switch (nodeMetadata.ChangeType)
 				{
-					Console.WriteLine("Oh no, {0} is gone!", nodeMetadata.Uri);
-					return;
-				}
-				Console.WriteLine("Found {0}", nodeMetadata.Uri);
-				foreach (var item in nodeMetadata.Metadata)
-				{
-					Console.WriteLine("\t{0}: {1}", item.Key, item.Value);
+					case TopologyChangeType.MasterSelected:
+						Console.WriteLine("Master selected {0}", nodeMetadata.Uri);
+						break;
+					case TopologyChangeType.Discovered:
+						Console.WriteLine("Found {0}", nodeMetadata.Uri);
+						break;
+					case TopologyChangeType.Gone:
+						Console.WriteLine("Oh no, {0} is gone!", nodeMetadata.Uri);
+						break;
+					default:
+						throw new ArgumentOutOfRangeException();
 				}
 			};
 			presence.Start();
+			Console.WriteLine(presence.Address);
 			Console.WriteLine("Waiting...");
 			Console.ReadLine();
 		}

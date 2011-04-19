@@ -1,0 +1,8 @@
+This paxos implementation behave in a last write win approach with regards to psoposal that
+have reached consensus.
+
+In other words, if we got acceptad proposal #4, but not accepted proposal #3, we will still
+go ahead and publish that #4 arrived to everyone who cares.
+
+The idea is that we just want whatever censensual decision all the nodes have reached, we don't
+care for dropped proposals.

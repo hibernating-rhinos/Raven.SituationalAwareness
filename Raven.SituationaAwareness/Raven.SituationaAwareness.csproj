@@ -45,8 +45,25 @@
     <Compile Include="DisposableAction.cs" />
     <Compile Include="INodeStateService.cs" />
     <Compile Include="NodeStateService.cs" />
+    <Compile Include="PaxosAndCommandsKnownTypes.cs" />
+    <Compile Include="Paxos\Acceptor.cs" />
+    <Compile Include="Paxos\Agent.cs" />
+    <Compile Include="Paxos\Commands\SwitchMasterCommand.cs" />
+    <Compile Include="Paxos\Learner.cs" />
+    <Compile Include="Paxos\Messages\Accept.cs" />
+    <Compile Include="Paxos\Messages\Accepted.cs" />
+    <Compile Include="Paxos\Commands\ICommandState.cs" />
+    <Compile Include="Paxos\Messages\PaxosMessage.cs" />
+    <Compile Include="Paxos\Messages\Promise.cs" />
+    <Compile Include="Paxos\Messages\ProposalSubsumed.cs" />
+    <Compile Include="Paxos\Messages\Propose.cs" />
+    <Compile Include="Paxos\Proposer.cs" />
     <Compile Include="Presence.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RemoteNodeMetadata.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Paxos\Notes.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

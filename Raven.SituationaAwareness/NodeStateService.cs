@@ -9,10 +9,10 @@ namespace Raven.SituationaAwareness
 	public class NodeStateService : INodeStateService
 	{
 		private readonly string clusterName;
-		private readonly Action<Uri> onConnect;
+		private readonly Action<Uri[]> onConnect;
 		private readonly Dictionary<string, string> metadata;
 
-		public NodeStateService(string clusterName, IDictionary<string, string> metadata, Action<Uri> onConnect)
+		public NodeStateService(string clusterName, IDictionary<string, string> metadata, Action<Uri[]> onConnect)
 		{
 			this.clusterName = clusterName;
 			this.onConnect = onConnect;
@@ -20,10 +20,10 @@ namespace Raven.SituationaAwareness
 			this.metadata = new Dictionary<string, string>(metadata);
 		}
 
-		public RemoteNodeMetadata GetMetadata(string remoteClusterName, Uri source)
+		public RemoteNodeMetadata GetMetadata(string remoteClusterName, Uri[] knownSiblings)
 		{
 			if (remoteClusterName == clusterName)
-				onConnect(source);
+				onConnect(knownSiblings);
 			return new RemoteNodeMetadata
 			{
 				ClusterName = clusterName,

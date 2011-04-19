@@ -33,7 +33,7 @@ namespace Raven.SituationaAwareness
 			Log = (s, objects) => { };// don't log
 			this.clusterName = clusterName;
 			this.heartbeat = heartbeat;
-			serviceHost = new ServiceHost(new NodeStateService(clusterName, nodeMetadata, FindNewEndpointMetadata));
+			serviceHost = new ServiceHost(new NodeStateService(clusterName, nodeMetadata, OnNewEndpointsDiscovered));
 			try
 			{
 				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
@@ -47,6 +47,11 @@ namespace Raven.SituationaAwareness
 				Dispose();
 				throw;
 			}
+		}
+
+		private void OnNewEndpointsDiscovered(Uri[] uris)
+		{
+			Parallel.ForEach(uris, FindNewEndpointMetadata);
 		}
 
 		private void FindNewEndpointMetadata(Uri uri)
@@ -102,7 +107,9 @@ namespace Raven.SituationaAwareness
 			var nodeStateServiceAsync = ChannelFactory<INodeStateServiceAsync>.CreateChannel(new NetTcpBinding(SecurityMode.None),
 			                                                                                 new EndpointAddress(listenUri));
 
-			Task.Factory.FromAsync<string, Uri,RemoteNodeMetadata>(nodeStateServiceAsync.BeginGetMetadata, nodeStateServiceAsync.EndGetMetadata, clusterName, myAddress, null)
+			var knownSiblings = topologyState.Keys.Concat(new[]{myAddress}).ToArray();
+
+			Task.Factory.FromAsync<string, Uri[], RemoteNodeMetadata>(nodeStateServiceAsync.BeginGetMetadata, nodeStateServiceAsync.EndGetMetadata, clusterName, knownSiblings, null)
 				.ContinueWith(task =>
 				{
 					// not interested in this one, it just failed

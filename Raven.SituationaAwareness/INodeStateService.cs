@@ -9,14 +9,14 @@ namespace Raven.SituationaAwareness
 	public interface INodeStateService
 	{
 		[OperationContract(ProtectionLevel = ProtectionLevel.None)]
-		RemoteNodeMetadata GetMetadata(string clusterName, Uri source);
+		RemoteNodeMetadata GetMetadata(string clusterName, Uri[] knownSiblings);
 	}
 
 	[ServiceContract(ProtectionLevel = ProtectionLevel.None, Name = "Raven.SituationaAwareness.INodeStateService", Namespace = "http://hibernatingrhinos.com/raven/situational.awareness/2011/04")]
 	public interface INodeStateServiceAsync
 	{
 		[OperationContract(ProtectionLevel = ProtectionLevel.None, AsyncPattern = true)]
-		IAsyncResult BeginGetMetadata(string clusterName, Uri source, AsyncCallback callback, object state);
+		IAsyncResult BeginGetMetadata(string clusterName, Uri[] knownSiblings, AsyncCallback callback, object state);
 
 		 RemoteNodeMetadata EndGetMetadata(IAsyncResult ar);
 	}

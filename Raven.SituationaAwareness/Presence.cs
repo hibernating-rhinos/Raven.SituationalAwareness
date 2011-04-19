@@ -24,7 +24,17 @@ namespace Raven.SituationaAwareness
 
 		private Agent[] agents = new Agent[0];
 
-		public Uri CurrentMaster { get; set; }
+		public Uri MasterSelectedByQuorom { get; private set; }
+
+		public Uri CurrentMaster
+		{
+			get
+			{
+				// if there is no master, we are the master, but we make sure
+				// that you can discover that we weren't selected by the quorom
+				return MasterSelectedByQuorom ?? myAddress;
+			}
+		}
 
 		public Action<string, object[]> Log { get; set; }
 
@@ -59,8 +69,6 @@ namespace Raven.SituationaAwareness
 											   myAddress);
 
 				topologyState.TryAdd(myAddress, nodeMetadata);
-				// we always starts with ourselves as the master
-				CurrentMaster = myAddress;
 			}
 			catch
 			{
@@ -92,24 +100,32 @@ namespace Raven.SituationaAwareness
 			var switchMasterCommand = commandState as SwitchMasterCommand;
 			if (switchMasterCommand == null)
 				return;
-			if (switchMasterCommand.NewMaster == CurrentMaster)
+			if (switchMasterCommand.NewMaster == MasterSelectedByQuorom)
 				return; // nothing changed
 
 			IDictionary<string, string> value;
-			if (topologyState.TryGetValue(switchMasterCommand.NewMaster, out value) == false)
+			lock (this)
 			{
-				// we got a master that we don't know of, let's discover the master
-				// which will initiate another master selection round
-				FindNewEndpointMetadata(switchMasterCommand.NewMaster);
-				return;
+				if (switchMasterCommand.NewMaster == MasterSelectedByQuorom)
+					return; // nothing changed
+
+
+				if (topologyState.TryGetValue(switchMasterCommand.NewMaster, out value) == false)
+				{
+					// we got a master that we don't know of, let's discover the master
+					// which will initiate another master selection round
+					FindNewEndpointMetadata(switchMasterCommand.NewMaster);
+					return;
+				}
+				MasterSelectedByQuorom = switchMasterCommand.NewMaster;
 			}
-			CurrentMaster = switchMasterCommand.NewMaster;
+
 			TopologyChanged(this, new NodeMetadata
 			{
 				ChangeType = TopologyChangeType.MasterSelected,
 				ClusterName = clusterName,
 				Metadata = value,
-				Uri = CurrentMaster
+				Uri = MasterSelectedByQuorom
 			});
 		}
 

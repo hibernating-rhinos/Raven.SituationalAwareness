@@ -24,7 +24,7 @@ namespace Raven.SituationaAwareness
 
 		private Agent[] agents = new Agent[0];
 
-		public Uri MasterSelectedByQuorom { get; private set; }
+		public Uri MasterSelectedByQuorum { get; private set; }
 
 		public Uri CurrentMaster
 		{
@@ -32,7 +32,7 @@ namespace Raven.SituationaAwareness
 			{
 				// if there is no master, we are the master, but we make sure
 				// that you can discover that we weren't selected by the quorom
-				return MasterSelectedByQuorom ?? myAddress;
+				return MasterSelectedByQuorum ?? myAddress;
 			}
 		}
 
@@ -100,13 +100,13 @@ namespace Raven.SituationaAwareness
 			var switchMasterCommand = commandState as SwitchMasterCommand;
 			if (switchMasterCommand == null)
 				return;
-			if (switchMasterCommand.NewMaster == MasterSelectedByQuorom)
+			if (switchMasterCommand.NewMaster == MasterSelectedByQuorum)
 				return; // nothing changed
 
 			IDictionary<string, string> value;
 			lock (this)
 			{
-				if (switchMasterCommand.NewMaster == MasterSelectedByQuorom)
+				if (switchMasterCommand.NewMaster == MasterSelectedByQuorum)
 					return; // nothing changed
 
 
@@ -117,7 +117,7 @@ namespace Raven.SituationaAwareness
 					FindNewEndpointMetadata(switchMasterCommand.NewMaster);
 					return;
 				}
-				MasterSelectedByQuorom = switchMasterCommand.NewMaster;
+				MasterSelectedByQuorum = switchMasterCommand.NewMaster;
 			}
 
 			TopologyChanged(this, new NodeMetadata
@@ -125,7 +125,7 @@ namespace Raven.SituationaAwareness
 				ChangeType = TopologyChangeType.MasterSelected,
 				ClusterName = clusterName,
 				Metadata = value,
-				Uri = MasterSelectedByQuorom
+				Uri = MasterSelectedByQuorum
 			});
 		}
 

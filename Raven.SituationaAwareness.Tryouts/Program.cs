@@ -9,9 +9,9 @@ namespace Raven.SituationaAwareness.Tryouts
 	{
 		static void Main(string[] args)
 		{
-			var presence = new Presence("RavenDB", new Dictionary<string, string>
+			var presence = new Presence("clusters/commerce", new Dictionary<string, string>
 			{
-				{"StartTime", DateTime.Now.ToString("r")}
+				{"RavenDB-Url", new UriBuilder("http", Environment.MachineName, 8080).Uri.ToString()}
 			}, TimeSpan.FromSeconds(3));
 			presence.TopologyChanged += (sender, nodeMetadata) =>
 			{

@@ -46,6 +46,20 @@ namespace Raven.SituationaAwareness
 			}
 		}
 
+		public IEnumerable<NodeMetadata> Topology
+		{
+			get
+			{
+				return topologyState.Select(x => new NodeMetadata
+				{
+					ChangeType = TopologyChangeType.None,
+					ClusterName = clusterName,
+					Metadata = x.Value,
+					Uri = x.Key
+				});
+			}
+		}
+
 		public event EventHandler<NodeMetadata> TopologyChanged = delegate { };
 
 		public Presence(string clusterName, IDictionary<string, string> nodeMetadata)
@@ -284,6 +298,7 @@ namespace Raven.SituationaAwareness
 
 	public enum TopologyChangeType
 	{
+		None,
 		MasterSelected,
 		Discovered,
 		Gone

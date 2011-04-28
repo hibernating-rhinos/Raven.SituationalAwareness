@@ -91,7 +91,7 @@ namespace Raven.SituationalAwareness
 			}
 		}
 
-		private void OnTopologyChanged(object sender, NodeMetadata nodeMetadata)
+		protected virtual void OnTopologyChanged(object sender, NodeMetadata nodeMetadata)
 		{
 			if (nodeMetadata.ChangeType == TopologyChangeType.MasterSelected)
 				return;//nothing to do here

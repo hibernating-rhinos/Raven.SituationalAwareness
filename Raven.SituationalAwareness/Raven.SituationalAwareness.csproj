@@ -59,6 +59,7 @@
     <Compile Include="Paxos\Messages\Propose.cs" />
     <Compile Include="Paxos\Proposer.cs" />
     <Compile Include="Presence.cs" />
+    <Compile Include="PresenceWithoutMasterSelection.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RemoteNodeMetadata.cs" />
   </ItemGroup>

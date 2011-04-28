@@ -287,20 +287,4 @@ namespace Raven.SituationalAwareness
 			CloseWcf(serviceHost);
 		}
 	}
-
-	public class NodeMetadata : EventArgs
-	{
-		public TopologyChangeType ChangeType { get; set; }
-		public IDictionary<string, string> Metadata { get; set; }
-		public Uri Uri { get; set; }
-		public string ClusterName { get; set; }
-	}
-
-	public enum TopologyChangeType
-	{
-		None,
-		MasterSelected,
-		Discovered,
-		Gone
-	}
 }

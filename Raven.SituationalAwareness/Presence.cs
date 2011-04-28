@@ -69,7 +69,7 @@ namespace Raven.SituationalAwareness
 
 		public Presence(string clusterName, IDictionary<string, string> nodeMetadata, TimeSpan heartbeat)
 		{
-			TopologyChanged = OnTopologyChanged;
+			TopologyChanged = SelectNewMasterOnTopologyChanged;
 			Log = (s, objects) => { };// don't log
 			this.clusterName = clusterName;
 			this.heartbeat = heartbeat;
@@ -91,7 +91,7 @@ namespace Raven.SituationalAwareness
 			}
 		}
 
-		protected virtual void OnTopologyChanged(object sender, NodeMetadata nodeMetadata)
+		protected virtual void SelectNewMasterOnTopologyChanged(object sender, NodeMetadata nodeMetadata)
 		{
 			if (nodeMetadata.ChangeType == TopologyChangeType.MasterSelected)
 				return;//nothing to do here

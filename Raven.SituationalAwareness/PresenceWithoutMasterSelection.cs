@@ -13,7 +13,7 @@ namespace Raven.SituationalAwareness
 		{
 		}
 
-		protected override void OnTopologyChanged(object sender, NodeMetadata nodeMetadata)
+		protected override void SelectNewMasterOnTopologyChanged(object sender, NodeMetadata nodeMetadata)
 		{
 			// we don't handle master selection
 		}

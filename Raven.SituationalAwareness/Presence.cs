@@ -18,8 +18,9 @@ namespace Raven.SituationalAwareness
 		private readonly string clusterName;
 		private readonly TimeSpan heartbeat;
 		private Timer timer;
-		private readonly ServiceHost serviceHost;
-		private readonly Uri myAddress;
+		private ServiceHost serviceHost;
+	    private readonly IDictionary<string, string> nodeMetadata;
+		private Uri myAddress;
 		private readonly ConcurrentDictionary<Uri, IDictionary<string, string>> topologyState = new ConcurrentDictionary<Uri, IDictionary<string, string>>();
 
 		private Agent[] agents = new Agent[0];
@@ -73,22 +74,9 @@ namespace Raven.SituationalAwareness
 			Log = (s, objects) => { };// don't log
 			this.clusterName = clusterName;
 			this.heartbeat = heartbeat;
-			serviceHost = new ServiceHost(new NodeStateService(clusterName, nodeMetadata, OnNewEndpointsDiscovered, OnPaxosMessage));
-			try
-			{
-				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
-				serviceHost.AddServiceEndpoint(new UdpDiscoveryEndpoint());
-				myAddress = new UriBuilder("net.tcp", Environment.MachineName, GetAutoPort(), "/Raven.SituationaAwareness/NodeState").Uri;
-				serviceHost.AddServiceEndpoint(typeof(INodeStateService), new NetTcpBinding(SecurityMode.None),
-											   myAddress);
+		    this.nodeMetadata = nodeMetadata;
 
-				topologyState.TryAdd(myAddress, nodeMetadata);
-			}
-			catch
-			{
-				Dispose();
-				throw;
-			}
+			RefreshServiceHost();
 		}
 
 		protected virtual void SelectNewMasterOnTopologyChanged(object sender, NodeMetadata nodeMetadata)
@@ -167,10 +155,47 @@ namespace Raven.SituationalAwareness
 
 		public void Start()
 		{
-			serviceHost.Open();
+		    var counter = 1;
+            while (counter != 0)
+            {
+                try
+                {
+                    serviceHost.Open();
+                    counter = 0;
+                }
+                catch (AddressAlreadyInUseException)
+                {
+                    if (counter == 100)
+                        throw;
+
+                    counter++;
+                    RefreshServiceHost();
+                }
+            }
+			
 			RefreshTopology(serviceHost);
 			timer = new Timer(RefreshTopology, serviceHost, heartbeat, heartbeat);
 		}
+
+        private void RefreshServiceHost()
+        {
+            serviceHost = new ServiceHost(new NodeStateService(clusterName, nodeMetadata, OnNewEndpointsDiscovered, OnPaxosMessage));
+            try
+            {
+                serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
+                serviceHost.AddServiceEndpoint(new UdpDiscoveryEndpoint());
+                myAddress = new UriBuilder("net.tcp", Environment.MachineName, GetAutoPort(), "/Raven.SituationaAwareness/NodeState").Uri;
+                serviceHost.AddServiceEndpoint(typeof(INodeStateService), new NetTcpBinding(SecurityMode.None),
+                                               myAddress);
+
+                topologyState.TryAdd(myAddress, nodeMetadata);
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
+        }
 
 		private static int GetAutoPort()
 		{

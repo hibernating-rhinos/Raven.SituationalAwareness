@@ -3,10 +3,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.NetworkInformation;
 using System.ServiceModel;
-using System.ServiceModel.Discovery;
 using System.Threading;
 using System.Linq;
 using System.Threading.Tasks;
+using Raven.SituationalAwareness.Discovery;
 using Raven.SituationalAwareness.Paxos;
 using Raven.SituationalAwareness.Paxos.Commands;
 using Raven.SituationalAwareness.Paxos.Messages;
@@ -19,6 +19,8 @@ namespace Raven.SituationalAwareness
 		private readonly TimeSpan heartbeat;
 		private Timer timer;
 		private readonly ServiceHost serviceHost;
+		private readonly DiscoveryClient discoveryClient;
+		private readonly DiscoveryHost discoveryHost;
 		private readonly Uri myAddress;
 		private readonly ConcurrentDictionary<Uri, IDictionary<string, string>> topologyState = new ConcurrentDictionary<Uri, IDictionary<string, string>>();
 
@@ -73,12 +75,15 @@ namespace Raven.SituationalAwareness
 			Log = (s, objects) => { };// don't log
 			this.clusterName = clusterName;
 			this.heartbeat = heartbeat;
+			discoveryHost = new DiscoveryHost();
+			discoveryHost.ClientDiscovered += DiscoveryHostOnClientDiscovered;
+			myAddress = new UriBuilder("net.tcp", Environment.MachineName, GetAutoPort(), "/Raven.SituationaAwareness/NodeState").Uri;
+
+			discoveryClient = new DiscoveryClient(clusterName, myAddress);
 			serviceHost = new ServiceHost(new NodeStateService(clusterName, nodeMetadata, OnNewEndpointsDiscovered, OnPaxosMessage));
 			try
 			{
-				serviceHost.Description.Behaviors.Add(new ServiceDiscoveryBehavior());
-				serviceHost.AddServiceEndpoint(new UdpDiscoveryEndpoint());
-				myAddress = new UriBuilder("net.tcp", Environment.MachineName, GetAutoPort(), "/Raven.SituationaAwareness/NodeState").Uri;
+				discoveryHost.Start();
 				serviceHost.AddServiceEndpoint(typeof(INodeStateService), new NetTcpBinding(SecurityMode.None),
 											   myAddress);
 
@@ -89,6 +94,14 @@ namespace Raven.SituationalAwareness
 				Dispose();
 				throw;
 			}
+		}
+
+		private void DiscoveryHostOnClientDiscovered(object sender, DiscoveryHost.ClientDiscoveredEventArgs clientDiscoveredEventArgs)
+		{
+			if (string.Equals(clientDiscoveredEventArgs.ClusterName, clusterName, StringComparison.InvariantCultureIgnoreCase) == false)
+				return;
+
+			FindNewEndpointMetadata(clientDiscoveredEventArgs.Uri);
 		}
 
 		protected virtual void SelectNewMasterOnTopologyChanged(object sender, NodeMetadata nodeMetadata)
@@ -189,18 +202,10 @@ namespace Raven.SituationalAwareness
 		{
 			// heartbeat - will remove any failing nodes
 			Parallel.ForEach(topologyState.Keys, FindEndpointMetadata);
-
-			var discoveryClient = new DiscoveryClient(new UdpDiscoveryEndpoint());
-			discoveryClient.FindProgressChanged += DiscoveryClientOnFindProgressChanged;
-			discoveryClient.FindCompleted += DiscoveryClientOnFindCompleted;
-			discoveryClient.FindAsync(new FindCriteria(typeof(INodeStateService)), state);
-
+			
+			discoveryClient.PublishMyPresence();
 		}
 
-		private void DiscoveryClientOnFindProgressChanged(object sender, FindProgressChangedEventArgs findProgressChangedEventArgs)
-		{
-			FindNewEndpointMetadata(findProgressChangedEventArgs.EndpointDiscoveryMetadata.ListenUris.First());
-		}
 
 		private void FindEndpointMetadata(Uri listenUri)
 		{
@@ -273,17 +278,12 @@ namespace Raven.SituationalAwareness
 			}
 		}
 
-		private static void DiscoveryClientOnFindCompleted(object sender, FindCompletedEventArgs findCompletedEventArgs)
-		{
-			var disposable = sender as IDisposable;
-			if (disposable != null)
-				disposable.Dispose();
-		}
 
 		public void Dispose()
 		{
 			if (timer != null)
 				timer.Dispose();
+			discoveryHost.Dispose();
 			CloseWcf(serviceHost);
 		}
 	}

@@ -34,7 +34,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.ServiceModel" />
-    <Reference Include="System.ServiceModel.Discovery" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -42,6 +41,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Discovery\DiscoveryClient.cs" />
+    <Compile Include="Discovery\DiscoveryHost.cs" />
     <Compile Include="DisposableAction.cs" />
     <Compile Include="INodeStateService.cs" />
     <Compile Include="INodeStateServiceAsync.cs" />

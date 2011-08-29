@@ -109,6 +109,8 @@ namespace Raven.SituationalAwareness
 			if (nodeMetadata.ChangeType == TopologyChangeType.MasterSelected)
 				return;//nothing to do here
 
+			MasterSelectedByQuorum = null; // Who is the master is in doubt, because the topology changed
+
 			var others = topologyState.Keys.ToArray();
 			var acceptor = new Acceptor(this, myAddress, others);
 			var proposer = new Proposer(this, acceptor, myAddress, others);
